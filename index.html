@@ -1258,20 +1258,202 @@
                 });
             },
 
+            chatHistory: [],
+            activeHelpTab: 'ai',
+
             openHelpModal: function () {
                 if (!this.currentUser) return;
                 
                 // Pre-fill information block
-                document.getElementById('help-user-name').textContent = this.currentUser.name || 'Yo';
-                document.getElementById('help-user-email').textContent = this.currentUser.email || '';
-                document.getElementById('help-user-role').textContent = this.currentUser.role || '';
-                document.getElementById('help-user-pair').textContent = this.currentUser.pairId || 'N/A';
+                const nameEl = document.getElementById('help-user-name');
+                const emailEl = document.getElementById('help-user-email');
+                const roleEl = document.getElementById('help-user-role');
+                const pairEl = document.getElementById('help-user-pair');
+                if (nameEl) nameEl.textContent = this.currentUser.name || 'Yo';
+                if (emailEl) emailEl.textContent = this.currentUser.email || '';
+                if (roleEl) roleEl.textContent = this.currentUser.role || '';
+                if (pairEl) pairEl.textContent = this.currentUser.pairId || 'N/A';
                 
                 // Clear fields
-                document.getElementById('help-input-topic').selectedIndex = 0;
-                document.getElementById('help-input-message').value = '';
+                const topicEl = document.getElementById('help-input-topic');
+                const msgEl = document.getElementById('help-input-message');
+                if (topicEl) topicEl.selectedIndex = 0;
+                if (msgEl) msgEl.value = '';
+                
+                // Open default tab
+                this.switchHelpTab('ai');
+                
+                // Initialize AI Chat
+                this.initHelpChat();
                 
                 this.openModal('help-modal');
+                
+                // Refresh Lucide icons in the newly opened/rendered elements
+                setTimeout(() => lucide.createIcons(), 50);
+            },
+
+            switchHelpTab: function (tabName) {
+                this.activeHelpTab = tabName;
+                const aiTab = document.getElementById('tab-help-ai');
+                const humanTab = document.getElementById('tab-help-human');
+                const aiContainer = document.getElementById('help-ai-container');
+                const humanContainer = document.getElementById('help-human-container');
+                
+                if (tabName === 'ai') {
+                    if (aiTab) {
+                        aiTab.classList.remove('border-transparent', 'text-slate-500');
+                        aiTab.classList.add('border-indigo-600', 'text-indigo-600');
+                    }
+                    if (humanTab) {
+                        humanTab.classList.remove('border-indigo-600', 'text-indigo-600');
+                        humanTab.classList.add('border-transparent', 'text-slate-500');
+                    }
+                    if (aiContainer) aiContainer.classList.remove('hidden');
+                    if (humanContainer) humanContainer.classList.add('hidden');
+                    
+                    this.scrollChatToBottom();
+                } else {
+                    if (humanTab) {
+                        humanTab.classList.remove('border-transparent', 'text-slate-500');
+                        humanTab.classList.add('border-indigo-600', 'text-indigo-600');
+                    }
+                    if (aiTab) {
+                        aiTab.classList.remove('border-indigo-600', 'text-indigo-600');
+                        aiTab.classList.add('border-transparent', 'text-slate-500');
+                    }
+                    if (humanContainer) humanContainer.classList.remove('hidden');
+                    if (aiContainer) aiContainer.classList.add('hidden');
+                }
+                lucide.createIcons();
+            },
+
+            initHelpChat: function () {
+                const historyEl = document.getElementById('chat-history');
+                if (!historyEl) return;
+                
+                // Only populate if empty
+                if (this.chatHistory.length === 0) {
+                    const welcomeText = "¡Hola! Soy **Nexus IA**, tu asistente virtual para el programa de Mentoring Comfamiliar Risaralda. Estoy aquí para resolver tus dudas metodológicas sobre las 6 fases de la ruta o el registro de evidencias. ¿En qué te puedo orientar hoy?";
+                    this.appendChatMessage('ai', welcomeText);
+                } else {
+                    // Re-render history
+                    historyEl.innerHTML = '';
+                    this.chatHistory.forEach(msg => {
+                        this.appendChatMessage(msg.role === 'user' ? 'user' : 'ai', msg.text);
+                    });
+                }
+            },
+
+            markdownToHtml: function (text) {
+                if (!text) return '';
+                // Escape HTML to prevent XSS
+                let html = text
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;");
+                
+                // Bold formatting
+                html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                // Italic formatting
+                html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+                // Bullet points
+                html = html.replace(/^\s*[-*]\s+(.*)$/gm, '<li class="ml-4 list-disc">$1</li>');
+                // Line breaks
+                html = html.replace(/\n/g, '<br>');
+                return html;
+            },
+
+            appendChatMessage: function (sender, text) {
+                const historyEl = document.getElementById('chat-history');
+                if (!historyEl) return;
+                
+                const bubbleWrapper = document.createElement('div');
+                bubbleWrapper.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`;
+                
+                const bubble = document.createElement('div');
+                if (sender === 'user') {
+                    bubble.className = "max-w-[85%] bg-indigo-600 text-white px-4 py-2.5 rounded-2xl rounded-tr-none text-sm shadow-sm";
+                    bubble.textContent = text; // Plain text for user input
+                } else {
+                    bubble.className = "max-w-[85%] bg-slate-100 text-slate-800 px-4 py-2.5 rounded-2xl rounded-tl-none text-sm shadow-sm prose prose-sm";
+                    bubble.innerHTML = this.markdownToHtml(text); // Parsed markdown for AI response
+                }
+                
+                bubbleWrapper.appendChild(bubble);
+                historyEl.appendChild(bubbleWrapper);
+                
+                this.scrollChatToBottom();
+            },
+
+            sendAiMessage: function () {
+                const inputEl = document.getElementById('chat-input');
+                const sendBtn = document.getElementById('chat-send-btn');
+                if (!inputEl || !inputEl.value.trim()) return;
+                
+                const text = inputEl.value.trim();
+                inputEl.value = '';
+                
+                // Disable input and button
+                inputEl.disabled = true;
+                if (sendBtn) sendBtn.disabled = true;
+                
+                // Append message to UI
+                this.appendChatMessage('user', text);
+                
+                // Add to history state
+                this.chatHistory.push({ role: 'user', text: text });
+                
+                // Show typing indicator
+                const indicator = document.getElementById('chat-typing-indicator');
+                if (indicator) indicator.classList.remove('hidden');
+                this.scrollChatToBottom();
+                
+                const payload = {
+                    action: 'GetAiResponse',
+                    message: text,
+                    history: this.chatHistory.slice(0, -1) // Exclude the message we just added
+                };
+                
+                fetch(this.apiUrl, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                })
+                .then(r => r.json())
+                .then(res => {
+                    // Hide typing indicator
+                    if (indicator) indicator.classList.add('hidden');
+                    
+                    // Re-enable input
+                    inputEl.disabled = false;
+                    if (sendBtn) sendBtn.disabled = false;
+                    inputEl.focus();
+                    
+                    if (res.status === 'success') {
+                        const aiResponse = res.response;
+                        this.appendChatMessage('ai', aiResponse);
+                        this.chatHistory.push({ role: 'model', text: aiResponse });
+                    } else {
+                        const errorMsg = "Lo siento, ha ocurrido un error al conectar con Nexus IA. Por favor, asegúrate de que haya conexión o reporta el incidente a un administrador en la otra pestaña.";
+                        this.appendChatMessage('ai', errorMsg);
+                    }
+                })
+                .catch(err => {
+                    console.error("Error talking to Gemini API:", err);
+                    if (indicator) indicator.classList.add('hidden');
+                    inputEl.disabled = false;
+                    if (sendBtn) sendBtn.disabled = false;
+                    inputEl.focus();
+                    
+                    const errorMsg = "Error de red al intentar conectar con Nexus IA. Por favor, revisa tu conexión a internet o utiliza la pestaña 'Reportar Incidente'.";
+                    this.appendChatMessage('ai', errorMsg);
+                });
+            },
+
+            scrollChatToBottom: function () {
+                const historyEl = document.getElementById('chat-history');
+                if (historyEl) {
+                    historyEl.scrollTop = historyEl.scrollHeight;
+                }
             },
 
             submitHelpRequest: function () {
@@ -2061,7 +2243,9 @@
         <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
             onclick="app.closeModal('help-modal')"></div>
         <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
-            <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl pointer-events-auto max-h-[90vh] overflow-y-auto">
+            <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl pointer-events-auto max-h-[90vh] flex flex-col overflow-hidden">
+                
+                <!-- Sticky Header -->
                 <div class="sticky top-0 bg-white z-10 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
                     <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
                         <i data-lucide="message-square-more" class="w-5 h-5 text-indigo-500"></i>
@@ -2072,50 +2256,96 @@
                         <i data-lucide="x" class="w-5 h-5"></i>
                     </button>
                 </div>
-                <form id="help-form" onsubmit="event.preventDefault(); app.submitHelpRequest()" class="p-6 space-y-5">
+                
+                <!-- Tab Switching Bar -->
+                <div class="flex border-b border-slate-100 bg-slate-50/50 sticky top-[61px] z-10">
+                    <button type="button" onclick="app.switchHelpTab('ai')" id="tab-help-ai"
+                        class="flex-1 py-3 px-4 text-center text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600 transition-all flex items-center justify-center gap-2 hover:bg-slate-50">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i>
+                        Preguntar a Nexus IA
+                    </button>
+                    <button type="button" onclick="app.switchHelpTab('human')" id="tab-help-human"
+                        class="flex-1 py-3 px-4 text-center text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all flex items-center justify-center gap-2 hover:bg-slate-50">
+                        <i data-lucide="user-cog" class="w-4 h-4"></i>
+                        Reportar Incidente
+                    </button>
+                </div>
+
+                <!-- Tab 1: AI Chat Container -->
+                <div id="help-ai-container" class="flex flex-col flex-1 overflow-hidden">
+                    <div id="chat-history" class="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/30 max-h-[350px] min-h-[350px]">
+                        <!-- Messages populated by JS -->
+                    </div>
                     
-                    <!-- Pre-filled info block -->
-                    <div class="bg-slate-50 border border-slate-100 rounded-xl p-4 text-xs space-y-2 text-slate-600">
-                        <p class="font-bold text-slate-700 uppercase tracking-wider text-[10px]">Información del Solicitante</p>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div><span class="font-semibold">Nombre:</span> <span id="help-user-name">...</span></div>
-                            <div><span class="font-semibold">Correo:</span> <span id="help-user-email">...</span></div>
-                            <div><span class="font-semibold">Rol en Dupla:</span> <span id="help-user-role">...</span></div>
-                            <div><span class="font-semibold">Código Dupla:</span> <span id="help-user-pair">...</span></div>
+                    <!-- Typing Indicator -->
+                    <div id="chat-typing-indicator" class="px-6 py-2 bg-slate-50/30 flex gap-2 items-center text-slate-400 text-xs hidden">
+                        <div class="flex space-x-1 bg-slate-100 px-3 py-2 rounded-2xl rounded-bl-none">
+                            <div class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
+                            <div class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+                            <div class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
                         </div>
+                        <span>Nexus está escribiendo...</span>
                     </div>
 
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">¿Con qué requieres apoyo?</label>
-                        <select name="topic" id="help-input-topic" required
-                            class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-slate-800 text-sm">
-                            <option value="" disabled selected>Selecciona un tema...</option>
-                            <option value="Dudas metodológicas / Fases de la ruta">Dudas metodológicas / Fases de la ruta</option>
-                            <option value="Dificultad de contacto con mi dupla">Dificultad de contacto con mi dupla</option>
-                            <option value="Problemas técnicos con la plataforma">Problemas técnicos con la plataforma</option>
-                            <option value="Sugerencias o Comentarios">Sugerencias o Comentarios</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-semibold text-slate-700 mb-2">Mensaje / Detalle de tu solicitud</label>
-                        <textarea name="message" id="help-input-message" rows="5" required minlength="10"
-                            placeholder="Describe detalladamente cómo podemos ayudarte. Los administradores recibirán tu solicitud y te contactarán..."
-                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none resize-none transition-all text-sm"></textarea>
-                    </div>
-
-                    <div class="pt-2 flex gap-3">
-                        <button type="button" onclick="app.closeModal('help-modal')"
-                            class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-all text-sm">
-                            Cancelar
-                        </button>
-                        <button type="submit" id="help-submit-btn"
-                            class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all text-sm flex items-center justify-center gap-2">
-                            <span>Enviar Solicitud</span>
+                    <!-- Input Box -->
+                    <div class="p-4 border-t border-slate-100 bg-white flex gap-2">
+                        <input type="text" id="chat-input" placeholder="Pregunta sobre la metodología, las 6 fases..." 
+                            class="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-sm"
+                            onkeydown="if(event.key === 'Enter') app.sendAiMessage()">
+                        <button type="button" onclick="app.sendAiMessage()" id="chat-send-btn"
+                            class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md transition-all flex items-center justify-center hover:-translate-y-0.5 active:translate-y-0">
                             <i data-lucide="send" class="w-4 h-4"></i>
                         </button>
                     </div>
-                </form>
+                </div>
+
+                <!-- Tab 2: Human Support Ticket Form Container -->
+                <div id="help-human-container" class="hidden overflow-y-auto max-h-[480px]">
+                    <form id="help-form" onsubmit="event.preventDefault(); app.submitHelpRequest()" class="p-6 space-y-5">
+                        
+                        <!-- Pre-filled info block -->
+                        <div class="bg-slate-50 border border-slate-100 rounded-xl p-4 text-xs space-y-2 text-slate-600">
+                            <p class="font-bold text-slate-700 uppercase tracking-wider text-[10px]">Información del Solicitante</p>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div><span class="font-semibold">Nombre:</span> <span id="help-user-name">...</span></div>
+                                <div><span class="font-semibold">Correo:</span> <span id="help-user-email">...</span></div>
+                                <div><span class="font-semibold">Rol en Dupla:</span> <span id="help-user-role">...</span></div>
+                                <div><span class="font-semibold">Código Dupla:</span> <span id="help-user-pair">...</span></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">¿Con qué requieres apoyo?</label>
+                            <select name="topic" id="help-input-topic" required
+                                class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-slate-800 text-sm">
+                                <option value="" disabled selected>Selecciona un tema...</option>
+                                <option value="Dudas metodológicas / Fases de la ruta">Dudas metodológicas / Fases de la ruta</option>
+                                <option value="Dificultad de contacto con mi dupla">Dificultad de contacto con mi dupla</option>
+                                <option value="Problemas técnicos con la plataforma">Problemas técnicos con la plataforma</option>
+                                <option value="Sugerencias o Comentarios">Sugerencias o Comentarios</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Mensaje / Detalle de tu solicitud</label>
+                            <textarea name="message" id="help-input-message" rows="5" required minlength="10"
+                                placeholder="Describe detalladamente cómo podemos ayudarte. Los administradores recibirán tu solicitud y te contactarán..."
+                                class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none resize-none transition-all text-sm"></textarea>
+                        </div>
+
+                        <div class="pt-2 flex gap-3">
+                            <button type="button" onclick="app.closeModal('help-modal')"
+                                class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-all text-sm">
+                                Cancelar
+                            </button>
+                            <button type="submit" id="help-submit-btn"
+                                class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all text-sm flex items-center justify-center gap-2">
+                                <span>Enviar Solicitud</span>
+                                <i data-lucide="send" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
