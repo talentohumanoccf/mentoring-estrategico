@@ -480,9 +480,14 @@
                     <div>
                         <div class="flex items-center justify-between mb-4">
                             <span id="partner-header-badge" class="text-xs font-bold text-emerald-600 uppercase tracking-wider bg-emerald-50 px-2.5 py-1 rounded-md">Mi Dupla</span>
-                            <a id="partner-profile-email-btn" href="#" class="flex items-center gap-1 text-slate-500 hover:text-emerald-600 text-xs font-semibold transition-colors">
-                                <i data-lucide="mail" class="w-3.5 h-3.5"></i> Contactar
-                            </a>
+                            <div class="flex items-center gap-3">
+                                <a id="partner-profile-email-btn" href="#" class="flex items-center gap-1 text-slate-500 hover:text-emerald-600 text-xs font-semibold transition-colors" title="Enviar correo">
+                                    <i data-lucide="mail" class="w-3.5 h-3.5"></i> Correo
+                                </a>
+                                <button onclick="app.copyPartnerEmailAndOpenChat()" class="flex items-center gap-1 text-slate-500 hover:text-indigo-600 text-xs font-semibold transition-colors" title="Iniciar chat en Google Chat">
+                                    <i data-lucide="message-square" class="w-3.5 h-3.5"></i> Google Chat
+                                </button>
+                            </div>
                         </div>
                         <div class="flex flex-col sm:flex-row items-center sm:items-start gap-4">
                             <div class="w-20 h-20 rounded-full border-2 border-emerald-200 overflow-hidden bg-slate-100 flex-shrink-0 shadow-inner">
@@ -950,6 +955,16 @@
                 });
                 document.getElementById(viewId).classList.remove('hidden');
                 document.getElementById(viewId).classList.add('fade-in');
+
+                // Toggle Help Desk button visibility: only on user workspace-view
+                const helpBtn = document.getElementById('help-desk-btn');
+                if (helpBtn) {
+                    if (viewId === 'workspace-view' && this.currentUser && !this.currentUser.isAdmin) {
+                        helpBtn.classList.remove('hidden');
+                    } else {
+                        helpBtn.classList.add('hidden');
+                    }
+                }
             },
 
             checkSession: function () {
@@ -1206,6 +1221,119 @@
                 .catch(e => {
                     btn.disabled = false;
                     btn.innerText = originalText;
+                    this.showToast('Error de conexión con el servidor', 'error');
+                    console.error(e);
+                });
+            },
+
+            copyPartnerEmailAndOpenChat: function () {
+                if (!this.currentUser || !this.currentUser.partnerEmail) {
+                    this.showToast('No se encontró el correo de tu dupla', 'error');
+                    return;
+                }
+                
+                const email = this.currentUser.partnerEmail;
+                navigator.clipboard.writeText(email).then(() => {
+                    this.showToast('¡Correo de dupla copiado al portapapeles! 📋');
+                    setTimeout(() => {
+                        window.open('https://chat.google.com/', '_blank');
+                    }, 800);
+                }).catch(err => {
+                    console.error('Error al copiar al portapapeles: ', err);
+                    // Fallback in case clipboard API fails (e.g. non-secure connection)
+                    const textarea = document.createElement('textarea');
+                    textarea.value = email;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    try {
+                        document.execCommand('copy');
+                        this.showToast('¡Correo de dupla copiado! 📋');
+                        setTimeout(() => {
+                            window.open('https://chat.google.com/', '_blank');
+                        }, 800);
+                    } catch (e) {
+                        this.showToast('No se pudo copiar automáticamente. Correo: ' + email, 'error');
+                    }
+                    document.body.removeChild(textarea);
+                });
+            },
+
+            openHelpModal: function () {
+                if (!this.currentUser) return;
+                
+                // Pre-fill information block
+                document.getElementById('help-user-name').textContent = this.currentUser.name || 'Yo';
+                document.getElementById('help-user-email').textContent = this.currentUser.email || '';
+                document.getElementById('help-user-role').textContent = this.currentUser.role || '';
+                document.getElementById('help-user-pair').textContent = this.currentUser.pairId || 'N/A';
+                
+                // Clear fields
+                document.getElementById('help-input-topic').selectedIndex = 0;
+                document.getElementById('help-input-message').value = '';
+                
+                this.openModal('help-modal');
+            },
+
+            submitHelpRequest: function () {
+                if (!this.currentUser) return;
+
+                const form = document.getElementById('help-form');
+                const formData = new FormData(form);
+                const btn = document.getElementById('help-submit-btn');
+                const originalText = btn.innerHTML;
+
+                const topic = formData.get('topic');
+                const message = formData.get('message');
+
+                if (!topic || !message || message.trim().length < 10) {
+                    this.showToast('Por favor completa todos los campos (mínimo 10 caracteres)', 'error');
+                    return;
+                }
+
+                btn.disabled = true;
+                btn.innerHTML = `<i data-lucide="loader" class="w-4 h-4 animate-spin mr-1"></i> Enviando...`;
+                lucide.createIcons();
+
+                const helpData = {
+                    action: 'SendHelpRequest',
+                    email: this.currentUser.email,
+                    name: this.currentUser.name || 'Colaborador',
+                    role: this.currentUser.role || '',
+                    pairId: this.currentUser.pairId || 'N/A',
+                    topic: topic,
+                    message: message
+                };
+
+                fetch(this.apiUrl, {
+                    method: 'POST',
+                    body: JSON.stringify(helpData)
+                })
+                .then(r => r.json())
+                .then(res => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                    lucide.createIcons();
+                    
+                    if (res.status === 'success') {
+                        this.showToast('¡Solicitud de ayuda enviada! 🎉');
+                        
+                        // Victory Confetti
+                        confetti({
+                            particleCount: 100,
+                            spread: 50,
+                            origin: { y: 0.8 }
+                        });
+                        
+                        this.closeModal('help-modal');
+                        form.reset();
+                    } else {
+                        this.showToast('Error al enviar: ' + res.message, 'error');
+                    }
+                })
+                .catch(e => {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                    lucide.createIcons();
                     this.showToast('Error de conexión con el servidor', 'error');
                     console.error(e);
                 });
@@ -1889,6 +2017,77 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Help Desk Button -->
+    <button id="help-desk-btn" onclick="app.openHelpModal()" 
+        class="fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 transform hover:scale-110 active:scale-95 z-40 hidden hover:rotate-12 border-2 border-indigo-100/50"
+        title="Mesa de Ayuda - Soporte">
+        <i data-lucide="life-buoy" class="w-7 h-7"></i>
+    </button>
+
+    <!-- Help Modal -->
+    <div id="help-modal" class="fixed inset-0 z-[60] hidden">
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
+            onclick="app.closeModal('help-modal')"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+            <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl pointer-events-auto max-h-[90vh] overflow-y-auto">
+                <div class="sticky top-0 bg-white z-10 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="life-buoy" class="w-5 h-5 text-red-500"></i>
+                        Mesa de Ayuda - Mentoring
+                    </h3>
+                    <button onclick="app.closeModal('help-modal')"
+                        class="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <form id="help-form" onsubmit="event.preventDefault(); app.submitHelpRequest()" class="p-6 space-y-5">
+                    
+                    <!-- Pre-filled info block -->
+                    <div class="bg-slate-50 border border-slate-100 rounded-xl p-4 text-xs space-y-2 text-slate-600">
+                        <p class="font-bold text-slate-700 uppercase tracking-wider text-[10px]">Información del Solicitante</p>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><span class="font-semibold">Nombre:</span> <span id="help-user-name">...</span></div>
+                            <div><span class="font-semibold">Correo:</span> <span id="help-user-email">...</span></div>
+                            <div><span class="font-semibold">Rol en Dupla:</span> <span id="help-user-role">...</span></div>
+                            <div><span class="font-semibold">Código Dupla:</span> <span id="help-user-pair">...</span></div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">¿Con qué requieres apoyo?</label>
+                        <select name="topic" id="help-input-topic" required
+                            class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-slate-800 text-sm">
+                            <option value="" disabled selected>Selecciona un tema...</option>
+                            <option value="Dudas metodológicas / Fases de la ruta">Dudas metodológicas / Fases de la ruta</option>
+                            <option value="Dificultad de contacto con mi dupla">Dificultad de contacto con mi dupla</option>
+                            <option value="Problemas técnicos con la plataforma">Problemas técnicos con la plataforma</option>
+                            <option value="Sugerencias o Comentarios">Sugerencias o Comentarios</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Mensaje / Detalle de tu solicitud</label>
+                        <textarea name="message" id="help-input-message" rows="5" required minlength="10"
+                            placeholder="Describe detalladamente cómo podemos ayudarte. Los administradores recibirán tu solicitud y te contactarán..."
+                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none resize-none transition-all text-sm"></textarea>
+                    </div>
+
+                    <div class="pt-2 flex gap-3">
+                        <button type="button" onclick="app.closeModal('help-modal')"
+                            class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-all text-sm">
+                            Cancelar
+                        </button>
+                        <button type="submit" id="help-submit-btn"
+                            class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all text-sm flex items-center justify-center gap-2">
+                            <span>Enviar Solicitud</span>
+                            <i data-lucide="send" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
