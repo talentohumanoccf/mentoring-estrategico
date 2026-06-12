@@ -1333,7 +1333,7 @@
                 
                 // Only populate if empty
                 if (this.chatHistory.length === 0) {
-                    const welcomeText = "¡Hola! Soy **Nexus IA**, tu asistente virtual para el programa de Mentoring Comfamiliar Risaralda. Estoy aquí para resolver tus dudas metodológicas sobre las 6 fases de la ruta o el registro de evidencias. ¿En qué te puedo orientar hoy?";
+                    const welcomeText = "¡Hola! Soy **Comf-IA**, tu asistente virtual para el programa de Mentoring Comfamiliar Risaralda. Estoy aquí para resolver tus dudas metodológicas sobre las 6 fases de la ruta o el registro de evidencias. ¿En qué te puedo orientar hoy?";
                     this.appendChatMessage('ai', welcomeText);
                 } else {
                     // Re-render history
@@ -1433,7 +1433,7 @@
                         this.appendChatMessage('ai', aiResponse);
                         this.chatHistory.push({ role: 'model', text: aiResponse });
                     } else {
-                        const errorMsg = "Lo siento, ha ocurrido un error al conectar con Nexus IA. Por favor, asegúrate de que haya conexión o reporta el incidente a un administrador en la otra pestaña.";
+                        const errorMsg = "Lo siento, ha ocurrido un error al conectar con Comf-IA. Por favor, asegúrate de que haya conexión o reporta el incidente a un administrador en la otra pestaña.";
                         this.appendChatMessage('ai', errorMsg);
                     }
                 })
@@ -1444,7 +1444,7 @@
                     if (sendBtn) sendBtn.disabled = false;
                     inputEl.focus();
                     
-                    const errorMsg = "Error de red al intentar conectar con Nexus IA. Por favor, revisa tu conexión a internet o utiliza la pestaña 'Reportar Incidente'.";
+                    const errorMsg = "Error de red al intentar conectar con Comf-IA. Por favor, revisa tu conexión a internet o utiliza la pestaña 'Reportar Incidente'.";
                     this.appendChatMessage('ai', errorMsg);
                 });
             },
@@ -2262,7 +2262,7 @@
                     <button type="button" onclick="app.switchHelpTab('ai')" id="tab-help-ai"
                         class="flex-1 py-3 px-4 text-center text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600 transition-all flex items-center justify-center gap-2 hover:bg-slate-50">
                         <i data-lucide="sparkles" class="w-4 h-4"></i>
-                        Preguntar a Nexus IA
+                        Preguntar a Comf-IA
                     </button>
                     <button type="button" onclick="app.switchHelpTab('human')" id="tab-help-human"
                         class="flex-1 py-3 px-4 text-center text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition-all flex items-center justify-center gap-2 hover:bg-slate-50">
@@ -2284,7 +2284,7 @@
                             <div class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
                             <div class="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
                         </div>
-                        <span>Nexus está escribiendo...</span>
+                        <span>Comf-IA está escribiendo...</span>
                     </div>
 
                     <!-- Input Box -->
