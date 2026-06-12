@@ -1339,6 +1339,34 @@
                 });
             },
 
+            chatWithSupport: function () {
+                // Copy the primary admin email to clipboard
+                const adminEmail = "wpareja@comfamiliar.com";
+                navigator.clipboard.writeText(adminEmail).then(() => {
+                    this.showToast('¡Correo de soporte copiado al portapapeles! 📋');
+                    setTimeout(() => {
+                        window.open('https://chat.google.com/', '_blank');
+                    }, 800);
+                }).catch(err => {
+                    console.error('Error al copiar al portapapeles: ', err);
+                    // Fallback in case clipboard API fails (e.g. non-secure connection)
+                    const textarea = document.createElement('textarea');
+                    textarea.value = adminEmail;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    try {
+                        document.execCommand('copy');
+                        this.showToast('¡Correo de soporte copiado! 📋');
+                        setTimeout(() => {
+                            window.open('https://chat.google.com/', '_blank');
+                        }, 800);
+                    } catch (e) {
+                        this.showToast('Correo de soporte: ' + adminEmail, 'error');
+                    }
+                    document.body.removeChild(textarea);
+                });
+            },
+
             fetchSessions: function () {
                 // In a real app, you would fetch from Google Sheets here
                 // For now, we simulate or use the actual endpoint if available
@@ -2023,9 +2051,9 @@
 
     <!-- Floating Help Desk Button -->
     <button id="help-desk-btn" onclick="app.openHelpModal()" 
-        class="fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 transform hover:scale-110 active:scale-95 z-40 hidden hover:rotate-12 border-2 border-indigo-100/50"
+        class="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-tr from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 transform hover:scale-110 active:scale-95 z-40 hidden hover:-translate-y-1 border-2 border-white/20"
         title="Mesa de Ayuda - Soporte">
-        <i data-lucide="life-buoy" class="w-7 h-7"></i>
+        <i data-lucide="message-square-more" class="w-7 h-7"></i>
     </button>
 
     <!-- Help Modal -->
@@ -2036,7 +2064,7 @@
             <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl pointer-events-auto max-h-[90vh] overflow-y-auto">
                 <div class="sticky top-0 bg-white z-10 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
                     <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
-                        <i data-lucide="life-buoy" class="w-5 h-5 text-red-500"></i>
+                        <i data-lucide="message-square-more" class="w-5 h-5 text-indigo-500"></i>
                         Mesa de Ayuda - Mentoring
                     </h3>
                     <button onclick="app.closeModal('help-modal')"
@@ -2055,6 +2083,18 @@
                             <div><span class="font-semibold">Rol en Dupla:</span> <span id="help-user-role">...</span></div>
                             <div><span class="font-semibold">Código Dupla:</span> <span id="help-user-pair">...</span></div>
                         </div>
+                    </div>
+
+                    <!-- Direct Chat Option -->
+                    <div class="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between gap-3 text-xs">
+                        <div class="space-y-1">
+                            <p class="font-bold text-slate-800">¿Prefieres chatear en tiempo real?</p>
+                            <p class="text-slate-500">Inicia una conversación directa en Google Chat con soporte.</p>
+                        </div>
+                        <button type="button" onclick="app.chatWithSupport()" class="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-all shadow-sm">
+                            <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+                            Chat Directo
+                        </button>
                     </div>
 
                     <div>
